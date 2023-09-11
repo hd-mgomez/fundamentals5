@@ -636,7 +636,7 @@ destructor TpbProtoField.Destroy;
 var I : Integer;
 begin
   for I := Length(FOptions) - 1 downto 0 do
-    FreeAndNil(FOptions);
+    FreeAndNil(FOptions[I]);
   FreeAndNil(FFieldType);
   FreeAndNil(FDefaultValue);
   inherited Destroy;
