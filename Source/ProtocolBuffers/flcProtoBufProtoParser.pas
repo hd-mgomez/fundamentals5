@@ -1137,7 +1137,7 @@ end;
 function TpbProtoParser.ParseServiceDeclaration(const P: TpbProtoPackage; const AParent: TpbProtoNode): TpbProtoMessage;
 var M : TpbProtoMessage;
 begin
-  Assert(FToken = pptMessage);
+  Assert(FToken = pptService);
   GetNextToken;
 
   M := FNodeFactory.CreateMessage(AParent);
@@ -1253,7 +1253,7 @@ begin
           pptSemiColon : GetNextToken;
           pptEnum      : P.AddEnum(ParseEnum(P, P));
           pptSyntax    : ParseSyntaxStatement(P);
-          pptService   : ParseServiceDeclaration(P);
+          pptService   : ParseServiceDeclaration(P, P);
         else
           raise EpbProtoParser.Create('Unexpected token');
         end;

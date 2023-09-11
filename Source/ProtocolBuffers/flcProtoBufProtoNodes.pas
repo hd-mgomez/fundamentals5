@@ -304,6 +304,47 @@ type
     function  GetAsProtoString: RawByteString; override;
   end;
 
+  TpbProtoRpc = class; // forward
+
+  TpbProtoService = class(TpbProtoNode)
+    FParentNode    : TpbProtoNode;
+    FName          : RawByteString;
+    FRPCs          : array of TpbProtoRpc;
+
+  public
+    constructor Create(const AParentNode: TpbProtoNode);
+    destructor Destroy; override;
+
+    property  ParentNode: TpbProtoNode read FParentNode;
+
+    property  Name: RawByteString read FName write FName;
+
+    function  GetAsProtoString: RawByteString; override;
+  end;
+
+  TpbProtoRpc  = class(TpbProtoNode)
+  protected
+    FParentService    : TpbProtoService;
+    FName             : RawByteString;
+    FRequestMessage   : TpbProtoMessage;
+    FResponseMessage  : TpbProtoMessage;
+    FRequestIsStream  : Boolean;
+    FResponseIsStream : Boolean;
+
+  public
+    constructor Create(const AParentService: TpbProtoService; const AFactory: TpbProtoNodeFactory);
+    destructor Destroy; override;
+
+    property  ParentService: TpbProtoService read FParentService;
+    property  Name: RawByteString read FName write FName;
+
+    property  RequestMessage: TpbProtoMessage read FRequestMessage; // write SetFieldType;
+    property  ResponseMessage: TpbProtoMessage read FResponseMessage; // write FCardinality;
+
+    function  GetAsProtoString: RawByteString; override;
+  end;
+
+
   TpbProtoPackage = class(TpbProtoNode)
   protected
     FFileName         : RawByteString;
@@ -313,6 +354,7 @@ type
     FImportedPackages : array of TpbProtoPackage;
     FOptions          : array of TpbProtoOption;
     FEnums            : array of TpbProtoEnum;
+    FServices         : array of TpbProtoService;
 
     function  GetEnumCount: Integer;
     function  GetEnum(const Idx: Integer): TpbProtoEnum;
@@ -347,6 +389,10 @@ type
     property  EnumCount: Integer read GetEnumCount;
     property  Enum[const Idx: Integer]: TpbProtoEnum read GetEnum;
 
+    procedure AddService(const Service: TpbProtoService);
+    function GetServiceCount: Integer;
+    function GetService(const Idx: Integer): TpbProtoService;
+
     function  ResolveValue(const AIdentifier: RawByteString; const AChildrenOnly: Boolean): TpbProtoNode; override;
     function  ResolveType(const AIdentifier: RawByteString; const AChildrenOnly: Boolean): TpbProtoNode; override;
 
@@ -357,6 +403,7 @@ type
   public
     function  CreatePackage: TpbProtoPackage; virtual;
     function  CreateMessage(const AParentNode: TpbProtoNode): TpbProtoMessage; virtual;
+    function  CreateService(const AParentNode: TpbProtoNode): TpbProtoService; virtual;
     function  CreateField(const AParentMessage: TpbProtoMessage): TpbProtoField; virtual;
     function  CreateFieldType(const AParentField: TpbProtoField): TpbProtoFieldType; virtual;
     function  CreateLiteral(const AParentNode: TpbProtoNode): TpbProtoLiteral; virtual;
@@ -911,7 +958,27 @@ begin
   Result := S;
 end;
 
+{ TpbProtoService }
 
+constructor TpbProtoService.Create(const AParentNode: TpbProtoNode);
+begin
+  Assert(Assigned(AParentNode));
+  inherited Create;
+  FParentNode := AParentNode;
+end;
+
+destructor TpbProtoService.Destroy;
+var I : Integer;
+begin
+  for I := Length(FRPCs) - 1 downto 0 do
+    FreeAndNil(FRPCs[I]);
+  inherited Destroy;
+end;
+
+function TpbProtoService.GetAsProtoString: RawByteString;
+begin
+
+end;
 
 { TpbProtoOption }
 
@@ -1105,6 +1172,26 @@ begin
   Result := nil;
 end;
 
+procedure TpbProtoPackage.AddService(const Service: TpbProtoService);
+var
+  L : Integer;
+begin
+  L := Length(FServices);
+  SetLength(FServices, L + 1);
+  FServices[L] := Service;
+end;
+
+function TpbProtoPackage.GetServiceCount: Integer;
+begin
+  Result := Length(FServices);
+end;
+
+function TpbProtoPackage.GetService(const Idx: Integer): TpbProtoService;
+begin
+  Assert((Idx >= 0) and (Idx < Length(FServices)));
+  Result := FServices[Idx];
+end;
+
 function TpbProtoPackage.ResolveValue(const AIdentifier: RawByteString; const AChildrenOnly: Boolean): TpbProtoNode;
 var
   I : Integer;
@@ -1223,7 +1310,30 @@ begin
   Result := S;
 end;
 
+{ TpbProtoRpc }
 
+constructor TpbProtoRpc.Create(const AParentService: TpbProtoService; const AFactory: TpbProtoNodeFactory);
+begin
+  Assert(Assigned(AParentService));
+  Assert(Assigned(AFactory));
+  inherited Create;
+  FParentService := AParentService;
+//  FRequestMessage := AFactory.CreateMessage(self);
+//  FResponseMessage := AFactory.CreateMessage(self);
+end;
+
+destructor TpbProtoRpc.Destroy;
+var I : Integer;
+begin
+//  FreeAndNil(FRequestMessage);
+//  FreeAndNil(FResponseMessage);
+  inherited Destroy;
+end;
+
+function  TpbProtoRpc.GetAsProtoString: RawByteString;
+begin
+  Result := '';
+end;
 
 { TpbProtoNodeFactory }
 
@@ -1235,6 +1345,11 @@ end;
 function TpbProtoNodeFactory.CreateMessage(const AParentNode: TpbProtoNode): TpbProtoMessage;
 begin
   Result := TpbProtoMessage.Create(AParentNode);
+end;
+
+function TpbProtoNodeFactory.CreateService(const AParentNode: TpbProtoNode): TpbProtoService;
+begin
+  Result := TpbProtoService.Create(AParentNode);
 end;
 
 function TpbProtoNodeFactory.CreateField(const AParentMessage: TpbProtoMessage): TpbProtoField;
