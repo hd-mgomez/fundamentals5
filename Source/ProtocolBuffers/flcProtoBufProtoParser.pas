@@ -896,8 +896,9 @@ end;
 function TpbProtoParser.ExpectFieldCardinality: TpbProtoFieldCardinality;
 begin
   Result := ParseFieldCardinality;
-  if Result = pfcNone then
-    raise EpbProtoParser.Create('Field cardinality expected');
+  // proto3 no necesita - agregar validación
+//  if Result = pfcNone then
+//    raise EpbProtoParser.Create('Field cardinality expected');
 end;
 
 function TpbProtoParser.ParseFieldBaseType: TpbProtoFieldBaseType;
@@ -1174,26 +1175,27 @@ var
 begin
   R := FNodeFactory.CreateProcedure(M);
   try
-  ExpectToken(pptProcedure, 'rpc');
-  R.Name := ExpectIdentifier;
-  ExpectDelimiter
+    ExpectToken(pptProcedure, 'rpc');
+    R.Name := ExpectIdentifier;
+    ExpectToken(pptOpenParenthesis, '(');
+    R.RequestIsStream := SkipToken(pptStream);
+    R.RequestMessage := ExpectIdentifier;
+    ExpectToken(pptCloseParenthesis, ')');
+    ExpectToken(pptIdentifier, 'returns');
+    ExpectToken(pptOpenParenthesis, '(');
+    R.ResponseIsStream := SkipToken(pptStream);
+    R.ResponseMessage := ExpectIdentifier;
+    // discard rest of the line. It ends in {} or ;
+    repeat
+      GetNextToken;
+    until (FToken in [pptSemiColon, pptCloseCurly]);
+    GetNextToken; // skip end-of-line token so it process next one
+    M.AddProcedure(R);
   except
     R.Free;
     raise;
   end;
 
-  repeat
-    GetNextToken;
-  until (FToken in [pptSemiColon, pptCloseCurly]);
-
-  GetNextToken;
-//  case FToken of
-//    pptEnum       : M.AddEnum(ParseEnum(P, M));
-//    pptMessage    : M.AddMessage(ParseMessageDeclaration(P, M));
-//    pptExtensions : ParseMessageExtensions(P, M);
-//  else
-//    ParseField(P, M);
-//  end;
 end;
 
 { example:                                                                     }
