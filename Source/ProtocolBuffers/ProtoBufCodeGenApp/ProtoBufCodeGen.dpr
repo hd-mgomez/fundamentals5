@@ -4,6 +4,7 @@ program ProtoBufCodeGen;
 
 uses
   SysUtils,
+  System.Classes,
   flcDynArrays in '..\..\Utils\flcDynArrays.pas',
   flcStrings in '..\..\Utils\flcStrings.pas',
   flcProtoBufUtils in '..\flcProtoBufUtils.pas',
@@ -43,6 +44,19 @@ end;
 procedure PrintError(const ErrorStr: String);
 begin
   Writeln('Error: ', ErrorStr);
+end;
+
+{ helper para volcar a disco }
+procedure SaveToFile(FileName: String; FileData: RawByteString);
+var
+  FileStream : TFileStream;
+begin
+  FileStream := TFileStream.Create(FileName, fmCreate);
+  try
+    FileStream.WriteBuffer(Pointer(FileData)^, Length(FileData));
+  finally
+    FileStream.Free;
+  end;
 end;
 
 var
@@ -148,6 +162,7 @@ begin
     Parser.ProtoPath := ParamProtoPath;
     Parser.SetFileName(ParamInputFile);
     Package := Parser.Parse(GetPascalProtoNodeFactory);
+    SaveToFile('.\output.proto', Package.GetAsProtoString);
   finally
     Parser.Free;
   end;

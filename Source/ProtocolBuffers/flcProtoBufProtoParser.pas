@@ -127,7 +127,9 @@ type
     pptMax,
 
     //nuevos
-    pptSyntax
+    pptSyntax,
+    pptProcedure,
+    pptStream
   );
 
 const
@@ -214,7 +216,9 @@ type
     procedure ParseMessageExtensions(const P: TpbProtoPackage; const M: TpbProtoMessage);
     procedure ParseMessageEntry(const P: TpbProtoPackage; const M: TpbProtoMessage);
     function  ParseMessageDeclaration(const P: TpbProtoPackage; const AParent: TpbProtoNode): TpbProtoMessage;
-    function  ParseServiceDeclaration(const P: TpbProtoPackage; const AParent: TpbProtoNode): TpbProtoMessage;
+
+    function  ParseServiceDeclaration(const P: TpbProtoPackage; const AParent: TpbProtoNode): TpbProtoService;
+    procedure ParseServiceEntry(const P: TpbProtoPackage; const M: TpbProtoService);
 
     procedure ParsePackageOption(const APackage: TpbProtoPackage);
     procedure ParseImportStatement(const APackage: TpbProtoPackage);
@@ -259,7 +263,7 @@ type
   end;
 
 const
-  KeywordMapEntries = 33;
+  KeywordMapEntries = 35;
   KeywordMap : array[0..KeywordMapEntries - 1] of TKeywordMap = (
       (
       Keyword : 'message';
@@ -392,6 +396,14 @@ const
       (
       Keyword : 'syntax';
       Token   : pptSyntax;
+      ),
+      (
+      Keyword : 'rpc';
+      Token   : pptProcedure;
+      ),
+      (
+      Keyword : 'stream';
+      Token   : pptStream;
       )
   );
 
@@ -1134,25 +1146,54 @@ end;
 
 { example:                                                                     }
 (*  service Open { <procedures> }                                             *)
-function TpbProtoParser.ParseServiceDeclaration(const P: TpbProtoPackage; const AParent: TpbProtoNode): TpbProtoMessage;
-var M : TpbProtoMessage;
+function TpbProtoParser.ParseServiceDeclaration(const P: TpbProtoPackage; const AParent: TpbProtoNode): TpbProtoService;
+var S : TpbProtoService;
 begin
   Assert(FToken = pptService);
   GetNextToken;
 
-  M := FNodeFactory.CreateMessage(AParent);
+  S := FNodeFactory.CreateService(AParent);
   try
-    M.Name := ExpectIdentifier;
+    S.Name := ExpectIdentifier;
     ExpectToken(pptOpenCurly, '{');
     while not (FToken in [pptCloseCurly, pptEndOfText]) do
-      ParseMessageEntry(P, M);
+      ParseServiceEntry(P, S);
     ExpectToken(pptCloseCurly, '}');
   except
-    M.Free;
+    S.Free;
     raise;
   end;
 
-  Result := M;
+  Result := S;
+end;
+{ example:
+*  rpc <name>([stream] <message>) returns ([stream] <message>); }
+procedure TpbProtoParser.ParseServiceEntry(const P: TpbProtoPackage; const M: TpbProtoService);
+var
+  R: TpbProtoProcedure;
+begin
+  R := FNodeFactory.CreateProcedure(M);
+  try
+  ExpectToken(pptProcedure, 'rpc');
+  R.Name := ExpectIdentifier;
+  ExpectDelimiter
+  except
+    R.Free;
+    raise;
+  end;
+
+  repeat
+    GetNextToken;
+  until (FToken in [pptSemiColon, pptCloseCurly]);
+
+  GetNextToken;
+//  case FToken of
+//    pptEnum       : M.AddEnum(ParseEnum(P, M));
+//    pptMessage    : M.AddMessage(ParseMessageDeclaration(P, M));
+//    pptExtensions : ParseMessageExtensions(P, M);
+//  else
+//    ParseField(P, M);
+//  end;
 end;
 
 { example:                                                                     }
@@ -1214,7 +1255,7 @@ end;
 {   syntax = "proto3";                                                         }
 procedure TpbProtoParser.ParseSyntaxStatement(const APackage: TpbProtoPackage);
 var
-  proto: String;
+  proto: RawByteString;
 begin
   Assert(FToken = pptSyntax);
 
@@ -1253,7 +1294,7 @@ begin
           pptSemiColon : GetNextToken;
           pptEnum      : P.AddEnum(ParseEnum(P, P));
           pptSyntax    : ParseSyntaxStatement(P);
-          pptService   : ParseServiceDeclaration(P, P);
+          pptService   : P.AddService(ParseServiceDeclaration(P, P));
         else
           raise EpbProtoParser.Create('Unexpected token');
         end;
