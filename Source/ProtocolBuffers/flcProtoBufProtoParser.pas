@@ -1185,11 +1185,12 @@ begin
     ExpectToken(pptOpenParenthesis, '(');
     R.ResponseIsStream := SkipToken(pptStream);
     R.ResponseMessage := ExpectIdentifier;
-    // discard rest of the line. It ends in {} or ;
-    repeat
+
+    repeat // discard rest of the line. It ends in {} or ;
       GetNextToken;
     until (FToken in [pptSemiColon, pptCloseCurly]);
     GetNextToken; // skip end-of-line token so it process next one
+
     M.AddProcedure(R);
   except
     R.Free;
