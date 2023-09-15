@@ -297,6 +297,30 @@ type
     procedure GenerateMessageUnit(const AUnit: TCodeGenPascalUnit; const PasVersion: TCodeGenSupportVersion);
   end;
 
+  { TpbProtoPascalService }
+
+  TpbProtoPascalService = class(TpbProtoService)
+  protected
+    FPascalProtoName : RawByteString;
+    FPascalName      : RawByteString;
+
+    function  GetPascalPackage: TpbProtoPascalPackage;
+    function  GetPascalProcedure(const Idx: Integer): TpbProtoPascalProcedure;
+
+    procedure GenerateNotificationDeclaration(const AUnit: TCodeGenPascalUnit; const PasVersion: TCodeGenSupportVersion);
+
+    procedure GenerateServiceDeclaration(const AUnit: TCodeGenPascalUnit; const PasVersion: TCodeGenSupportVersion);
+    procedure GenerateServiceImplementation(const AUnit: TCodeGenPascalUnit; const PasVersion: TCodeGenSupportVersion);
+
+
+  public
+    constructor Create(const AParentNode: TpbProtoNode);
+    destructor Destroy; override;
+
+    procedure CodeGenInit;
+    procedure GenerateServiceUnit(const AUnit: TCodeGenPascalUnit; const PasVersion: TCodeGenSupportVersion);
+  end;
+
 
 
   { TpbProtoPascalPackage }
@@ -2056,7 +2080,7 @@ var
 begin
   FPascalProtoName := ProtoNameToPascalProtoName(FName);
   FPascalBaseName := 'pb' + FPascalProtoName;
-  FMessageUnit.Name := FPascalBaseName + 'Messages';
+  FMessageUnit.Name := FPascalBaseName + '.GRPC';
 
   for I := 0 to GetImportedPackageCount - 1 do
     GetPascalImportedPackage(I).CodeGenInit;
@@ -2064,6 +2088,8 @@ begin
     GetPascalEnum(I).CodeGenInit;
   for I := 0 to GetMessageCount - 1 do
     GetPascalMessage(I).CodeGenInit;
+  for I := 0 to GetServiceCount -1 do
+    GetPascalService(I).CodeGenInit;
 end;
 
 procedure TpbProtoPascalPackage.GenerateMessageUnit(const PasVersion: TCodeGenSupportVersion);
