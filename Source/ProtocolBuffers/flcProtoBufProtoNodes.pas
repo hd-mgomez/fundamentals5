@@ -319,7 +319,7 @@ type
 
   TpbProtoProcedure = class(TpbProtoNode)
   protected
-    FParentService: TpbProtoService;
+    FParentNode: TpbProtoNode;
     FName: RawByteString;
     FRequestMessage: RawByteString;
     FResponseMessage: RawByteString;
@@ -327,10 +327,10 @@ type
     FResponseIsStream: Boolean;
 
   public
-    constructor Create(const AParentService: TpbProtoService);
+    constructor Create(const AParentService: TpbProtoNode);
     destructor Destroy; override;
 
-    property ParentService: TpbProtoService read FParentService;
+    property ParentService: TpbProtoNode read FParentNode;
     property Name: RawByteString read FName write FName;
 
     property RequestMessage: RawByteString read FRequestMessage
@@ -1358,11 +1358,11 @@ end;
 
 { TpbProtoProcedure }
 
-constructor TpbProtoProcedure.Create(const AParentService: TpbProtoService);
+constructor TpbProtoProcedure.Create(const AParentService: TpbProtoNode);
 begin
   Assert(Assigned(AParentService));
   inherited Create;
-  FParentService := AParentService;
+  FParentNode := AParentService;
 end;
 
 destructor TpbProtoProcedure.Destroy;
