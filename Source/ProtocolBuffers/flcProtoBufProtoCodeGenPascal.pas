@@ -339,7 +339,7 @@ type
     destructor Destroy; override;
 
     procedure CodeGenInit;
-    procedure GenerateServiceUnit(const AUnit: TCodeGenPascalUnit; const PasVersion: TCodeGenSupportVersion);
+    procedure GenerateMessageUnit(const AUnit: TCodeGenPascalUnit; const PasVersion: TCodeGenSupportVersion);
   end;
 
   { TpbProtoPascalPackage }
@@ -395,10 +395,8 @@ type
     function  CreateLiteral(const AParentNode: TpbProtoNode): TpbProtoLiteral; override;
     function  CreateEnum(const AParentNode: TpbProtoNode): TpbProtoEnum; override;
     function  CreateEnumValue(const AParentEnum: TpbProtoEnum): TpbProtoEnumValue; override;
-        function CreateService(const AParentNode: TpbProtoNode)
-      : TpbProtoService; override;
-    function CreateProcedure(const AParentNode: TpbProtoService) : TpbProtoProcedure; override;
-
+    function  CreateService(const AParentNode: TpbProtoNode): TpbProtoService; override;
+    function  CreateProcedure(const AParentService: TpbProtoService) : TpbProtoProcedure; override;
   end;
 
 
@@ -1791,13 +1789,12 @@ end;
 
 constructor TpbProtoPascalService.Create(const AParentNode: TpbProtoNode);
 begin
-
+  inherited Create(AParentNode);
 end;
 
 destructor TpbProtoPascalService.Destroy;
 begin
-
-  inherited;
+  inherited Destroy;
 end;
 
 procedure TpbProtoPascalService.GenerateNotificationDeclaration(
@@ -1821,28 +1818,92 @@ end;
 
 procedure TpbProtoPascalService.GenerateServiceDeclaration(
   const AUnit: TCodeGenPascalUnit; const PasVersion: TCodeGenSupportVersion);
+var
+  I, L: Integer;
+  Proc: TpbProtoPascalProcedure;
 begin
   with AUnit do
   begin
+    Intf.AppendLn(FPascalName + ' = class(TgRpcClientBase)');
+    Intf.AppendLn('private');
+    L := GetProcedureCount;
+    for I := 0 to L - 1 do
+    begin
+      Proc := GetPascalProcedure(I);
+      Intf.AppendLn('  FOn' + Proc.Name + ': T' + Proc.ResponseMessage + 'Notify;');
+    end;
+    Intf.AppendLn('published');
+    for I := 0 to L - 1 do
+    begin
+      Proc := GetPascalProcedure(I);
+      Intf.AppendLn('  property On' + Proc.Name + 'Response : T' + Proc.ResponseMessage + 'Notify read FOn' + Proc.Name + ' write FOn' + Proc.Name + ';');
+    end;
+    Intf.AppendLn('public');
+    for I := 0 to L - 1 do
+    begin
+      Proc := GetPascalProcedure(I);
+      Intf.AppendLn('  procedure ' + Proc.Name + '(AValue : T' + Proc.ResponseMessage + 'Msg);');
+    end;
 
+    Intf.AppendLn('protected');
+    Intf.AppendLn('  procedure NotifyResponseFragment(Path, Id: string; Data: TBytes); override;');
+    Intf.AppendLn('  procedure NotifyResponse(Path, Id: string; Data: TBytes); override;');
+
+    Intf.AppendLn('end;');
   end;
 end;
 
 procedure TpbProtoPascalService.GenerateServiceImplementation(
   const AUnit: TCodeGenPascalUnit; const PasVersion: TCodeGenSupportVersion);
+var
+  I, L: Integer;
+  Proc: TpbProtoPascalProcedure;
 begin
+  with AUnit do
+  begin
+    L := GetProcedureCount;
+    for I := 0 to L - 1 do
+    begin
+      Proc := GetPascalProcedure(I);
+      Impl.AppendLn('procedure ' + FPascalName + '.' + Proc.Name + '(AValue : T' + Proc.ResponseMessage + 'Msg);');
+      Impl.AppendLn('begin');
+      if Proc.RequestIsStream then
+        Impl.AppendLn('  raise Exception.Create(''client streaming not implemented'');')
+      else
+        Impl.AppendLn('  Execute(' + Self.FName + 'Path + ' + StrQuoteB(Proc.Name, '''') + ', AValue.Serialize);');
+      Impl.AppendLn('end;');
+      Impl.AppendLn;
+    end;
 
+    Impl.AppendLn('procedure ' + FPascalName + '.NotifyResponse(Path, Id: string; Data: TBytes);');
+    Impl.AppendLn('begin');
+    Impl.AppendLn('  // do nothing');
+    Impl.AppendLn('end;');
+    Impl.AppendLn;
+
+    Impl.AppendLn('procedure ' + FPascalName + '.NotifyResponseFragment(Path, Id: string; Data: TBytes);');
+    Impl.AppendLn('begin');
+    for I := 0 to L - 1 do
+    begin
+      Proc := GetPascalProcedure(I);
+      Impl.AppendLn('  if Path = '+ Self.FName + 'Path + ' + StrQuoteB(Proc.Name, '''') + ' then');
+      Impl.AppendLn('  begin');
+      Impl.AppendLn('    if Assigned(FOn' + Proc.Name + ') then');
+      Impl.AppendLn('      FOn' + Proc.Name + '(T' + Proc.ResponseMessage + 'Msg.Create(Data));');
+      Impl.AppendLn('  end;');
+    end;
+    Impl.AppendLn('end;');
+    Impl.AppendLn;
+
+  end;
 end;
 
-procedure TpbProtoPascalService.GenerateServiceUnit(
+procedure TpbProtoPascalService.GenerateMessageUnit(
   const AUnit: TCodeGenPascalUnit; const PasVersion: TCodeGenSupportVersion);
 var
-  I : Integer;
+//  I : Integer;
   CommentLine : RawByteString;
 begin
-//  for I := 0 to GetProcedureCount - 1 do
-//    GetPascalProcedure(I).GenerateMessageUnit(AUnit);
-
 
   CommentLine := '{ ' + FPascalName + ' }';
 
@@ -1851,18 +1912,19 @@ begin
 
   AUnit.Impl.AppendLn(CommentLine);
   AUnit.Impl.AppendLn;
+
+  AUnit.Intf.AppendLn('const');
+  AUnit.Intf.AppendLn('  ' + FName + 'Path = ' + StrQuoteB('/' + GetPascalPackage.FName + '.' + FName + '/', '''') + ';');
+  AUnit.Intf.AppendLn;
+  AUnit.Intf.AppendLn('type');
+
   GenerateNotificationDeclaration(AUnit, PasVersion);
+  AUnit.Intf.AppendLn;
 
   GenerateServiceDeclaration(AUnit, PasVersion);
 
-//  if PasVersion = cgsvAll then
-//    AUnit.Intf.AppendLn('{$IFNDEF VER_XE}');
-
   GenerateServiceImplementation(AUnit, PasVersion);
-  // GenerateRecordDecodeProc(AUnit, PasVersion);
 
-//  if PasVersion = cgsvAll then
-//    AUnit.Intf.AppendLn('{$ENDIF}');
 
   AUnit.Intf.AppendLn;
 
@@ -1878,13 +1940,10 @@ begin
   Result := FParentNode as TpbProtoPascalPackage;
 end;
 
-
-
-
 function TpbProtoPascalService.GetPascalProcedure(
   const Idx: Integer): TpbProtoPascalProcedure;
 begin
-
+  Result := GetProcedure(Idx) as TpbProtoPascalProcedure;
 end;
 
 { TpbProtoPascalPackage }
@@ -1920,16 +1979,21 @@ begin
 end;
 
 procedure TpbProtoPascalPackage.GenerateMessageUnit(const PasVersion: TCodeGenSupportVersion);
-var I : Integer;
+var
+  I : Integer;
+  S : RawByteString;
 begin
    FMessageUnit.UnitComments := FMessageUnit.UnitComments +
       '{ Unit ' + FMessageUnit.FName + '.pas }' + CRLF;
   if FFileName <> '' then
     FMessageUnit.UnitComments := FMessageUnit.UnitComments +
         '{ Generated from ' + FFileName + ' }' + CRLF;
+  FMessageUnit.UnitComments := FMessageUnit.UnitComments + '(*' + CRLF +
+    GetAsProtoString + '*)' + CRLF;
   FMessageUnit.UnitComments := FMessageUnit.UnitComments +
       '{ Package ' + FPascalProtoName + ' }' + CRLF;
 
+  FMessageUnit.IntfUses.Add('Classes');
   FMessageUnit.IntfUses.Add('SysUtils');
   FMessageUnit.IntfUses.Add('HD.ProtoBuffers');
   FMessageUnit.IntfUses.Add('HD.gRPC');
@@ -1956,7 +2020,19 @@ begin
     GetPascalMessage(I).GenerateMessageUnit(FMessageUnit, PasVersion);
 
   for I := 0 to GetServiceCount - 1 do
-    GetPascalService(I).GenerateServiceUnit(FMessageUnit, PasVersion);
+    GetPascalService(I).GenerateMessageUnit(FMessageUnit, PasVersion);
+
+  FMessageUnit.Intf.AppendLn('procedure Register;');
+  FMessageUnit.Impl.AppendLn('procedure Register;');
+  FMessageUnit.Impl.AppendLn('begin');
+  FMessageUnit.Impl.Append('  Classes.RegisterComponents(''HD gRPC'',[');
+  S := '';
+  for I := 0 to GetServiceCount - 1 do
+    S := S + GetPascalService(I).FPascalName + ', ';
+  FMessageUnit.Impl.Append(CopyLeftB(S, Length(S)-2));
+  FMessageUnit.Impl.AppendLn(']);');
+  FMessageUnit.Impl.AppendLn('end;');
+  FMessageUnit.Impl.AppendLn;
 end;
 
 function TpbProtoPascalPackage.GetPascalService(const Idx: Integer): TpbProtoPascalService;
@@ -2018,9 +2094,9 @@ begin
   Result := TpbProtoPascalPackage.Create;
 end;
 
-function TpbProtoPascalNodeFactory.CreateProcedure(const AParentNode: TpbProtoService): TpbProtoProcedure;
+function TpbProtoPascalNodeFactory.CreateProcedure(const AParentService: TpbProtoService): TpbProtoProcedure;
 begin
-  Result := TpbProtoPascalProcedure.Create(AParentNode);
+  Result := TpbProtoPascalProcedure.Create(AParentService);
 end;
 
 function TpbProtoPascalNodeFactory.CreateService(const AParentNode: TpbProtoNode): TpbProtoService;
