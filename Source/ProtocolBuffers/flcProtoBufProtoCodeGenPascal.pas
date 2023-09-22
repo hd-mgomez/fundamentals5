@@ -305,6 +305,10 @@ type
     FPascalProtoName : RawByteString;
     FPascalName      : RawByteString;
 
+    FPascalRequestMessage  : RawByteString;
+    FPascalResponseMessage : RawByteString;
+    FPascalResponseNotify  : RawByteString;
+
     function  GetPascalPackage: TpbProtoPascalPackage;
 
     procedure GenerateProcedureDeclaration(const AUnit: TCodeGenPascalUnit; const PasVersion: TCodeGenSupportVersion);
@@ -622,6 +626,28 @@ begin
   Result := S;
 end;
 
+function ProtoNameToPascalPrefixProtoName(const AName: RawByteString): RawByteString;
+var S : RawByteString;
+    I : Integer;
+begin
+  S := AName;
+  Result := AsciiLowCaseB(S[1]);
+  // replace _xxx with _Xxx
+  repeat
+    I := PosStrB('_', S);
+    if I > 0 then
+      begin
+        Delete(S, I, 1);
+        if I <= Length(S) then
+          Result := Result + AsciiLowCaseB(S[I]);
+//          S[I] := AsciiUpCaseB(S[I]);
+      end;
+  until I = 0;
+  // first character upper case
+  //  S := AsciiFirstUpB(S);
+  // return Pascal name
+  //  Result := S;
+end;
 
 
 { TpbProtoPascalEnumValue }
@@ -665,7 +691,7 @@ begin
   FPascalProtoName := ProtoNameToPascalProtoName(FName);
   FPascalName := 'T' + FPascalProtoName;
 
-  FPascalEnumValuePrefix := FName;
+  FPascalEnumValuePrefix := ProtoNameToPascalPrefixProtoName(FName);
   AsciiConvertLowerB(FPascalEnumValuePrefix);
 
   for I := 0 to GetValueCount - 1 do
@@ -679,7 +705,7 @@ begin
   with AUnit do
   begin
     Intf.AppendLn('{ ' + FPascalName + ' }');
-    Intf.AppendLn;
+//    Intf.AppendLn;
     Intf.AppendLn('type');
     Intf.AppendLn('  ' + FPascalName + ' = (');
     L := GetValueCount;
@@ -691,58 +717,58 @@ begin
         Intf.AppendLn;
       end;
     Intf.AppendLn('  );');
-    Intf.AppendLn;
+//    Intf.AppendLn;
   end;
 end;
 
 procedure TpbProtoPascalEnum.GenerateHelpers(const AUnit: TCodeGenPascalUnit);
-var
-  Proto : RawByteString;
+//var
+//  Proto : RawByteString;
 begin
-  with AUnit do
-    begin
-      Impl.AppendLn('{ ' + FPascalName + ' }');
-      Impl.AppendLn;
-
-      Proto := 'function  pbEncodeValue' + FPascalProtoName + '(var Buf; const BufSize: Integer; const Value: ' + FPascalName + '): Integer;';
-      Intf.AppendLn(Proto);
-      Proto := 'function pbEncodeValue' + FPascalProtoName + '(var Buf; const BufSize: Integer; const Value: ' + FPascalName + '): Integer;';
-      Impl.AppendLn(Proto);
-      Impl.AppendLn('begin');
-      Impl.AppendLn('  Result := pbEncodeValueInt32(Buf, BufSize, Ord(Value));');
-      Impl.AppendLn('end;');
-      Impl.AppendLn;
-
-      Proto := 'function  pbEncodeField' + FPascalProtoName + '(var Buf; const BufSize: Integer; const FieldNum: Integer; const Value: ' + FPascalName + '): Integer;';
-      Intf.AppendLn(Proto);
-      Proto := 'function pbEncodeField' + FPascalProtoName + '(var Buf; const BufSize: Integer; const FieldNum: Integer; const Value: ' + FPascalName + '): Integer;';
-      Impl.AppendLn(Proto);
-      Impl.AppendLn('begin');
-      Impl.AppendLn('  Result := pbEncodeFieldInt32(Buf, BufSize, FieldNum, Ord(Value));');
-      Impl.AppendLn('end;');
-      Impl.AppendLn;
-
-      Proto := 'function  pbDecodeValue' + FPascalProtoName + '(const Buf; const BufSize: Integer; var Value: ' + FPascalName + '): Integer;';
-      Intf.AppendLn(Proto);
-      Proto := 'function pbDecodeValue' + FPascalProtoName + '(const Buf; const BufSize: Integer; var Value: ' + FPascalName + '): Integer;';
-      Impl.AppendLn(Proto);
-      Impl.AppendLn('var I : LongInt;');
-      Impl.AppendLn('begin');
-      Impl.AppendLn('  Result := pbDecodeValueInt32(Buf, BufSize, I);');
-      Impl.AppendLn('  Value := ' + FPascalName + '(I);');
-      Impl.AppendLn('end;');
-      Impl.AppendLn;
-
-      Proto := 'procedure pbDecodeField' + FPascalProtoName + '(const Field: TpbProtoBufDecodeField; var Value: ' + FPascalName + ');';
-      Intf.AppendLn(Proto);
-      Impl.AppendLn(Proto);
-      Impl.AppendLn('var I : LongInt;');
-      Impl.AppendLn('begin');
-      Impl.AppendLn('  pbDecodeFieldInt32(Field, I);');
-      Impl.AppendLn('  Value := ' + FPascalName + '(I);');
-      Impl.AppendLn('end;');
-      Impl.AppendLn;
-    end;
+//  with AUnit do
+//    begin
+//      Impl.AppendLn('{ ' + FPascalName + ' }');
+//      Impl.AppendLn;
+//
+//      Proto := 'function  pbEncodeValue' + FPascalProtoName + '(var Buf; const BufSize: Integer; const Value: ' + FPascalName + '): Integer;';
+//      Intf.AppendLn(Proto);
+//      Proto := 'function pbEncodeValue' + FPascalProtoName + '(var Buf; const BufSize: Integer; const Value: ' + FPascalName + '): Integer;';
+//      Impl.AppendLn(Proto);
+//      Impl.AppendLn('begin');
+//      Impl.AppendLn('  Result := pbEncodeValueInt32(Buf, BufSize, Ord(Value));');
+//      Impl.AppendLn('end;');
+//      Impl.AppendLn;
+//
+//      Proto := 'function  pbEncodeField' + FPascalProtoName + '(var Buf; const BufSize: Integer; const FieldNum: Integer; const Value: ' + FPascalName + '): Integer;';
+//      Intf.AppendLn(Proto);
+//      Proto := 'function pbEncodeField' + FPascalProtoName + '(var Buf; const BufSize: Integer; const FieldNum: Integer; const Value: ' + FPascalName + '): Integer;';
+//      Impl.AppendLn(Proto);
+//      Impl.AppendLn('begin');
+//      Impl.AppendLn('  Result := pbEncodeFieldInt32(Buf, BufSize, FieldNum, Ord(Value));');
+//      Impl.AppendLn('end;');
+//      Impl.AppendLn;
+//
+//      Proto := 'function  pbDecodeValue' + FPascalProtoName + '(const Buf; const BufSize: Integer; var Value: ' + FPascalName + '): Integer;';
+//      Intf.AppendLn(Proto);
+//      Proto := 'function pbDecodeValue' + FPascalProtoName + '(const Buf; const BufSize: Integer; var Value: ' + FPascalName + '): Integer;';
+//      Impl.AppendLn(Proto);
+//      Impl.AppendLn('var I : LongInt;');
+//      Impl.AppendLn('begin');
+//      Impl.AppendLn('  Result := pbDecodeValueInt32(Buf, BufSize, I);');
+//      Impl.AppendLn('  Value := ' + FPascalName + '(I);');
+//      Impl.AppendLn('end;');
+//      Impl.AppendLn;
+//
+//      Proto := 'procedure pbDecodeField' + FPascalProtoName + '(const Field: TpbProtoBufDecodeField; var Value: ' + FPascalName + ');';
+//      Intf.AppendLn(Proto);
+//      Impl.AppendLn(Proto);
+//      Impl.AppendLn('var I : LongInt;');
+//      Impl.AppendLn('begin');
+//      Impl.AppendLn('  pbDecodeFieldInt32(Field, I);');
+//      Impl.AppendLn('  Value := ' + FPascalName + '(I);');
+//      Impl.AppendLn('end;');
+//      Impl.AppendLn;
+//    end;
 end;
 
 procedure TpbProtoPascalEnum.GenerateMessageUnit(const AUnit: TCodeGenPascalUnit);
@@ -750,10 +776,10 @@ begin
   GenerateDeclaration(AUnit);
   GenerateHelpers(AUnit);
   AUnit.Intf.AppendLn;
-  AUnit.Intf.AppendLn;
-  AUnit.Intf.AppendLn;
-  AUnit.Impl.AppendLn;
-  AUnit.Impl.AppendLn;
+//  AUnit.Intf.AppendLn;
+//  AUnit.Intf.AppendLn;
+//  AUnit.Impl.AppendLn;
+//  AUnit.Impl.AppendLn;
 end;
 
 
@@ -840,8 +866,7 @@ begin
     bkSimple :
       Result := 'write' + FPascalProtoStr + '(' + ParTagID + ', ' + ParValue + ')';
     bkEnum :
-      Result := 'pbEncodeField' + FEnum.FPascalProtoName +
-          '(' + ParBuf + ', ' + ParBufSize + ', ' + ParTagID + ', ' + ParValue + ')';
+      Result := 'writeInt32' + '(' + ParTagID + ', Ord(' + ParValue + '))';
     bkMsg  :
       Result := 'pbEncodeField' + FMsg.FPascalProtoName +
           '(' + ParBuf + ', ' + ParBufSize + ', ' + ParTagID + ', ' + ParValue + ')';
@@ -873,8 +898,7 @@ begin
     bkSimple :
       Result := 'read' + FPascalProtoStr;
     bkEnum :
-      Result := 'pbDecodeField' + FEnum.FPascalProtoName +
-          '(' + ParField + ', ' + ParValue + ')';
+      Result := 'readInt32';
     bkMsg :
       Result := 'pbDecodeField' + FMsg.FPascalProtoName +
           '(' + ParField + ', ' + ParValue + ')';
@@ -1658,36 +1682,18 @@ begin
         begin
           F := GetPascalField(I);
 
-//          if F.IsArray then
-//          begin
-//            case PasVersion of
-//              cgsvLessXE:  Impl.AppendLn('    ' + IntToStringB(F.FTagID) + ' : ' + F.GetPascalDecodeFieldTypeCall('Field', 'A^.' + F.FPascalName, 'A^.') + ';');
-//              cgsvXE:      Impl.AppendLn('    ' + IntToStringB(F.FTagID) + ' : ' + 'A^.' + F.FPascalName + '.DecodeField(Field)' + ';');
-//              cgsvAll:     Impl.AppendLn('    ' + IntToStringB(F.FTagID) + ' : {$IFDEF VER_XE}' + 'A^.' + F.FPascalName + '.DecodeField(Field)' + '{$ELSE}'  + F.GetPascalDecodeFieldTypeCall('Field', 'A^.' + F.FPascalName, 'A^.') + '{$ENDIF};');
-//            end;
-//          end
-//          else
-//          begin
-  //TODO: Faltan los Assert!
+          if F.GetPascalFieldType.FPascalBaseType.FBaseKind = bkEnum then
+          begin
+            Impl.AppendLn('        ' + IntToStringB(F.FTagID) + ' : ');
+            Impl.AppendLn('          begin');
+            Impl.AppendLn('            Assert(wireType = WIRETYPE_VARINT);');
+            Impl.AppendLn('            ' + F.FPascalName + ' := ' + F.GetPascalFieldType.FPascalTypeStr + '(PB.readInt32);');
+            Impl.AppendLn('          end;');
+          end
+          else
             Impl.AppendLn('        ' + IntToStringB(F.FTagID) + ' : ' + F.FPascalName + ' := PB.' + F.GetPascalDecodeFieldTypeCall('Field', 'A^.' + F.FPascalName, 'A^.') + ';');
-//          end;
-        end;
 
-//      1:
-//        begin
-//          Assert(wireType = WIRETYPE_VARINT);
-//          sec := PB.readUInt32;
-//        end;
-//      2:
-//        begin
-//          Assert(wireType = WIRETYPE_LENGTH_DELIMITED);
-//          msg := PB.readString;
-//        end;
-//      3:
-//        begin
-//          Assert(wireType = WIRETYPE_VARINT);
-//          msec := PB.readUInt32;
-//        end;
+        end;
       Impl.AppendLn('      else');
       Impl.AppendLn('        PB.skipField(tag);');
       Impl.AppendLn('    end;');
@@ -1743,7 +1749,11 @@ end;
 
 procedure TpbProtoPascalProcedure.CodeGenInit;
 begin
+  FPascalProtoName := ProtoNameToPascalProtoName(FName);
 
+  FPascalRequestMessage := 'T' + ProtoNameToPascalProtoName(RequestMessage) + 'Msg';
+  FPascalResponseMessage := 'T' + ProtoNameToPascalProtoName(ResponseMessage) + 'Msg';
+  FPascalResponseNotify := 'T' + ProtoNameToPascalProtoName(ResponseMessage) + 'Notify';
 end;
 
 constructor TpbProtoPascalProcedure.Create(const AParentNode: TpbProtoNode);
@@ -1779,7 +1789,7 @@ end;
 procedure TpbProtoPascalService.CodeGenInit;
 var I : Integer;
 begin
-  FPascalProtoName := ProtoNameToPascalProtoName(FName); // + 'Service';
+  FPascalProtoName := ProtoNameToPascalProtoName(FName) + 'Svc';
   FPascalName := 'T' + FPascalProtoName;
 
   for I := 0 to GetProcedureCount - 1 do
@@ -1802,15 +1812,14 @@ procedure TpbProtoPascalService.GenerateNotificationDeclaration(
 var
   I: Integer;
   done: RawByteString;
-  Proc: TpbProtoProcedure;
+  Proc: TpbProtoPascalProcedure;
 begin
     for I := 0 to GetProcedureCount - 1 do
     begin
-      Proc := GetProcedure(I);
+      Proc := GetPascalProcedure(I);
       if not StrMatchB(done, Proc.ResponseMessage) then
       begin
-        AUnit.Intf.AppendLn('T' + Proc.ResponseMessage + 'Notify = procedure(AValue : T' +
-          Proc.ResponseMessage + 'Msg) of object;');
+        AUnit.Intf.AppendLn(Proc.FPascalResponseNotify + ' = procedure(AValue : ' +  Proc.FPascalResponseMessage + ') of object;');
         done := done + Proc.ResponseMessage + ',';
       end;
     end;
@@ -1830,19 +1839,19 @@ begin
     for I := 0 to L - 1 do
     begin
       Proc := GetPascalProcedure(I);
-      Intf.AppendLn('  FOn' + Proc.Name + ': T' + Proc.ResponseMessage + 'Notify;');
+      Intf.AppendLn('  FOn' + Proc.FPascalProtoName + ': ' + Proc.FPascalResponseNotify + ';');
     end;
     Intf.AppendLn('published');
     for I := 0 to L - 1 do
     begin
       Proc := GetPascalProcedure(I);
-      Intf.AppendLn('  property On' + Proc.Name + 'Response : T' + Proc.ResponseMessage + 'Notify read FOn' + Proc.Name + ' write FOn' + Proc.Name + ';');
+      Intf.AppendLn('  property On' + Proc.FPascalProtoName + 'Response : ' + Proc.FPascalResponseNotify + ' read FOn' + Proc.FPascalProtoName + ' write FOn' + Proc.FPascalProtoName + ';');
     end;
     Intf.AppendLn('public');
     for I := 0 to L - 1 do
     begin
       Proc := GetPascalProcedure(I);
-      Intf.AppendLn('  procedure ' + Proc.Name + '(AValue : T' + Proc.ResponseMessage + 'Msg);');
+      Intf.AppendLn('  procedure ' + Proc.FPascalProtoName + '(AValue : ' + Proc.FPascalRequestMessage + ');');
     end;
 
     Intf.AppendLn('protected');
@@ -1865,7 +1874,7 @@ begin
     for I := 0 to L - 1 do
     begin
       Proc := GetPascalProcedure(I);
-      Impl.AppendLn('procedure ' + FPascalName + '.' + Proc.Name + '(AValue : T' + Proc.ResponseMessage + 'Msg);');
+      Impl.AppendLn('procedure ' + FPascalName + '.' + Proc.FPascalProtoName + '(AValue : ' + Proc.FPascalRequestMessage + ');');
       Impl.AppendLn('begin');
       if Proc.RequestIsStream then
         Impl.AppendLn('  raise Exception.Create(''client streaming not implemented'');')
@@ -1889,7 +1898,7 @@ begin
       Impl.AppendLn('  if Path = '+ Self.FName + 'Path + ' + StrQuoteB(Proc.Name, '''') + ' then');
       Impl.AppendLn('  begin');
       Impl.AppendLn('    if Assigned(FOn' + Proc.Name + ') then');
-      Impl.AppendLn('      FOn' + Proc.Name + '(T' + Proc.ResponseMessage + 'Msg.Create(Data));');
+      Impl.AppendLn('      FOn' + Proc.FPascalProtoName + '(' + Proc.FPascalResponseMessage + '.Create(Data));');
       Impl.AppendLn('  end;');
     end;
     Impl.AppendLn('end;');

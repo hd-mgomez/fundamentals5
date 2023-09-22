@@ -1349,10 +1349,12 @@ begin
   S := '';
   if FName <> '' then
     S := S + 'package ' + FName + ';' + pbCRLF + pbCRLF;
+  for I := 0 to GetEnumCount - 1 do
+    S := S + GetEnum(I).GetAsProtoString + pbCRLF ;
   for I := 0 to GetMessageCount - 1 do
-    S := S + GetMessage(I).GetAsProtoString;
+    S := S + GetMessage(I).GetAsProtoString + pbCRLF ;
   for I := 0 to GetServiceCount - 1 do
-    S := S + GetService(I).GetAsProtoString;
+    S := S + GetService(I).GetAsProtoString + pbCRLF ;
   Result := S;
 end;
 
