@@ -19,7 +19,7 @@ uses
   flcStringBuilder in '..\..\Utils\flcStringBuilder.pas';
 
 const
-  AppVersion = '1.0.1';
+  AppVersion = '1.0.2';
 
 procedure PrintTitle;
 begin
@@ -37,6 +37,7 @@ begin
   Writeln('  -O same as --pas_out');
   Writeln('  --pas_ver=<output delphi version for .pas files; 0: less delpi XE, 1: only delphi XE, 2: all>');
   Writeln('  -V= same as --pas_ver');
+  Writeln('  -P include .proto as comment in the unit header');
 
   Writeln('  --help');
 end;
@@ -66,6 +67,8 @@ var
   ParamProtoPath  : String;
 
   ParamSupportVersion: TCodeGenSupportVersion = cgsvLessXE;
+
+  ParamIncludeProto : Boolean;
 
   // app
   InputFileFull : String;
@@ -121,6 +124,11 @@ begin
         Delete(S, 1, 3);
         ParamProtoPath := S;
       end
+      else if StrMatchLeft(S, '-P', False) then
+      begin
+        Delete(S, 1, 2);
+        ParamIncludeProto := True;
+      end
       else if StrEqualNoAsciiCase(S, '--help') then
       begin
         PrintHelp;
@@ -175,6 +183,7 @@ begin
   CodeGen := TpbProtoCodeGenPascal.Create;
   try
     CodeGen.OutputPath := OutputPath;
+    CodeGen.IncludeProto := ParamIncludeProto;
     CodeGen.GenerateCode(Package, ParamSupportVersion);
   finally
     FreeAndNil(CodeGen);

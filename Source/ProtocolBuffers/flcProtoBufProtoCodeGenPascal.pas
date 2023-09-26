@@ -366,7 +366,7 @@ type
     property  MessageUnit: TCodeGenPascalUnit read FMessageUnit;
 
     procedure CodeGenInit;
-    procedure GenerateMessageUnit(const PasVersion: TCodeGenSupportVersion);
+    procedure GenerateMessageUnit(const PasVersion: TCodeGenSupportVersion; const IncludeProto: Boolean = false );
     procedure Save(const OutputPath: String);
   end;
 
@@ -377,12 +377,13 @@ type
   TpbProtoCodeGenPascal = class
   protected
     FOutputPath : String;
-
+    FIncludeProto : Boolean;
   public
     constructor Create;
     destructor Destroy; override;
 
     property  OutputPath: String read FOutputPath write FOutputPath;
+    property IncludeProto: Boolean read FIncludeProto write FIncludeProto;
     procedure GenerateCode(const APackage: TpbProtoPackage; const PasVersion: TCodeGenSupportVersion);
   end;
 
@@ -1987,7 +1988,7 @@ begin
     GetPascalService(I).CodeGenInit;
 end;
 
-procedure TpbProtoPascalPackage.GenerateMessageUnit(const PasVersion: TCodeGenSupportVersion);
+procedure TpbProtoPascalPackage.GenerateMessageUnit(const PasVersion: TCodeGenSupportVersion; const IncludeProto: Boolean = false );
 var
   I : Integer;
   S : RawByteString;
@@ -1997,8 +1998,11 @@ begin
   if FFileName <> '' then
     FMessageUnit.UnitComments := FMessageUnit.UnitComments +
         '{ Generated from ' + FFileName + ' }' + CRLF;
-  FMessageUnit.UnitComments := FMessageUnit.UnitComments + '(*' + CRLF +
-    GetAsProtoString + '*)' + CRLF;
+
+  if IncludeProto then
+    FMessageUnit.UnitComments := FMessageUnit.UnitComments + '(*' + CRLF +
+      GetAsProtoString + '*)' + CRLF;
+
   FMessageUnit.UnitComments := FMessageUnit.UnitComments +
       '{ Package ' + FPascalProtoName + ' }' + CRLF;
 
@@ -2032,6 +2036,7 @@ begin
     GetPascalService(I).GenerateMessageUnit(FMessageUnit, PasVersion);
 
   FMessageUnit.Intf.AppendLn('procedure Register;');
+  FMessageUnit.Intf.AppendCRLF;
   FMessageUnit.Impl.AppendLn('procedure Register;');
   FMessageUnit.Impl.AppendLn('begin');
   FMessageUnit.Impl.Append('  Classes.RegisterComponents(''HD gRPC'',[');
@@ -2090,7 +2095,7 @@ begin
 
   P := (APackage as TpbProtoPascalPackage);
   P.CodeGenInit;
-  P.GenerateMessageUnit(PasVersion);
+  P.GenerateMessageUnit(PasVersion, IncludeProto);
   P.Save(FOutputPath);
 end;
 
