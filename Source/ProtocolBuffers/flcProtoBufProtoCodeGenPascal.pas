@@ -251,6 +251,8 @@ type
     FPascalRecordHasValueDefinition : RawByteString;
 
     FPascalRecordInitStatement : RawByteString;
+    FPascalRecordCreateStatement : RawByteString;
+
     FPascalRecordInitHasValueStatement : RawByteString;
 
     FPascalRecordFinaliseStatement : RawByteString;
@@ -277,6 +279,8 @@ type
   { TpbProtoPascalMessage }
 
   TpbProtoPascalMessage = class(TpbProtoMessage)
+  private
+    FPascalNeedCustomCreate: Boolean;
   protected
     FPascalProtoName : RawByteString;
     FPascalName      : RawByteString;
@@ -928,7 +932,10 @@ end;
 function TpbProtoPascalFieldBaseType.GetPascalInitInstanceCall(const ParInstance: RawByteString): RawByteString;
 begin
   case FBaseKind of
-    bkMsg : Result := FMsg.FPascalProtoName + 'Init(' + ParInstance + ')';
+    bkMsg : begin
+      Result := 'if Assigned(' + ParInstance + ') then ' + ParInstance + '.Free; '
+        + ParInstance + ' := T' + FMsg.FPascalProtoName + '.Create;';
+    end
   else
     Result := '';
   end;
@@ -1416,6 +1423,8 @@ begin
   else
     FPascalHasValueName := '';
 
+  FPascalRecordCreateStatement := '';
+
   GetPascalFieldType.CodeGenInit;
 
   FPascalRecordDefinition :=
@@ -1432,10 +1441,9 @@ begin
   FPascalRecordInitHasValueStatement := '';
   if not GetPascalFieldType.FIsArray and (GetPascalFieldType.FPascalBaseType.FBaseKind = bkMsg) then
     begin
-      FPascalRecordInitStatement :=
-          GetPascalFieldType.FPascalBaseType.FMsg.FPascalProtoName + 'Init(' + FPascalName + ');';
-      FPascalRecordFinaliseStatement :=
-          GetPascalFieldType.FPascalBaseType.FMsg.FPascalProtoName + 'Finalise(' + FPascalName + ');';
+      FPascalRecordInitStatement := FPascalName + '.Init;';
+      FPascalRecordCreateStatement := FPascalName + ' := T' + GetPascalFieldType.FPascalBaseType.FMsg.FPascalProtoName + '.Create;';
+      FPascalRecordFinaliseStatement := ''; // GetPascalFieldType.FPascalBaseType.FMsg.FPascalProtoName + 'Finalise(' + FPascalName + ');';
     end
   else
     begin
@@ -1525,7 +1533,11 @@ begin
     GetPascalMessage(I).CodeGenInit;
 
   for I := 0 to GetFieldCount - 1 do
+  begin
     GetPascalField(I).CodeGenInit;
+    if GetPascalField(I).FPascalRecordCreateStatement <> '' then
+      FPascalNeedCustomCreate := True;
+  end;
 end;
 
 procedure TpbProtoPascalMessage.GenerateRecordDeclaration(const AUnit: TCodeGenPascalUnit;
@@ -1564,7 +1576,9 @@ begin
 //            Intf.AppendLn('    ' + F.FPascalRecordHasValueDefinition);
           Intf.AppendLn('    ' + F.FPascalRecordPropertyDefinition);
         end;
-      Intf.AppendLn('    procedure Init;');
+      if FPascalNeedCustomCreate then
+        Intf.AppendLn('    constructor Create; overload;');
+      Intf.AppendLn('    procedure Init; override;');
       Intf.AppendLn('    procedure ToProtoBuffer(PB: TProtoBufOutput); override;');
       Intf.AppendLn('    procedure FromProtoBuf(PB: TProtoBufInput); override;');
       Intf.AppendLn('  end;');
@@ -1581,15 +1595,29 @@ var
 begin
   with AUnit do
     begin
+      L := GetFieldCount;
+      if FPascalNeedCustomCreate then
+        begin
+          Impl.AppendLn('constructor T' + FPascalProtoName + '.Create;');
+          Impl.AppendLn('begin');
+          for I := 0 to L - 1 do
+            begin
+              Field := GetPascalField(I);
+              if Field.FPascalRecordCreateStatement <> '' then
+                Impl.AppendLn('    ' + Field.FPascalRecordCreateStatement);
+            end;
+          Impl.AppendLn('    Init;');
+          Impl.AppendLn('end;');
+          Impl.AppendCRLF;
+        end;
       Impl.AppendLn('procedure T' + FPascalProtoName + '.Init;');
       Impl.AppendLn('begin');
-      L := GetFieldCount;
       for I := 0 to L - 1 do
         begin
           Field := GetPascalField(I);
           if Field.FPascalRecordInitHasValueStatement <> '' then
-            Impl.AppendLn('    ' + GetPascalField(I).FPascalRecordInitHasValueStatement);
-          Impl.AppendLn('    ' + GetPascalField(I).FPascalRecordInitStatement);
+            Impl.AppendLn('    ' + Field.FPascalRecordInitHasValueStatement);
+          Impl.AppendLn('    ' + Field.FPascalRecordInitStatement);
           Impl.AppendLn('    FModified[' + IntToStringB(I + 1) + '] := false;');
         end;
       Impl.AppendLn('end;');
@@ -1601,7 +1629,7 @@ begin
           Field := GetPascalField(I);
           Impl.AppendLn('procedure T' + FPascalProtoName + '.' + Field.FPascalRecordPropertySetProcedure);
           Impl.AppendLn('begin');
-          Impl.AppendLn('    F' + GetPascalField(I).FPascalName + ' := AValue;');
+          Impl.AppendLn('    F' + Field.FPascalName + ' := AValue;');
           Impl.AppendLn('    FModified[' + IntToStringB(I + 1) + '] := true;');
           Impl.AppendLn('end;');
           Impl.AppendLn;
