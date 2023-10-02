@@ -1649,6 +1649,11 @@ begin
     begin
 
       Impl.AppendLn('procedure T' + FPascalProtoName + '.ToProtoBuffer(PB: TProtoBufOutput);');
+      if FPascalNeedCustomCreate then
+      begin
+        Impl.AppendLn('var');
+        Impl.AppendLn('  submsg: TProtoBufOutput;');
+      end;
       Impl.AppendLn('begin');
       L := GetFieldCount;
       for I := 0 to L - 1 do
@@ -1657,8 +1662,8 @@ begin
           Ind := '  ';
           Impl.AppendLn(Ind + 'if FModified[' + IntToStringB(I + 1) + '] then');
 
-//          if F.IsArray then
-//          begin
+          if F.IsArray then
+          begin
 //            if PasVersion = cgsvAll then
 //              Impl.AppendLn('{$IFDEF VER_XE}');
 //
@@ -1673,11 +1678,19 @@ begin
 //
 //            if PasVersion = cgsvAll then
 //              Impl.AppendLn('{$ENDIF}');
-//          end
-//          else
-//          begin
-          Impl.AppendLn(Ind + '  PB.' + F.GetPascalEncodeFieldTypeCall('P^', 'L', '' + F.FPascalName) + ';');
-//          end;
+          end
+          else
+          if F.GetPascalFieldType.FPascalBaseType.FBaseKind = bkMsg then
+          begin
+            Impl.AppendLn(Ind + '  begin');
+            Impl.AppendLn(Ind + '    ' + F.FPascalName + '.ToProtoBuffer(submsg);');
+            Impl.AppendLn(Ind + '    PB.writeMessage(' + IntToStringB(F.FTagID) + ', submsg);');
+            Impl.AppendLn(Ind + '  end;');
+          end
+          else
+          begin
+            Impl.AppendLn(Ind + '  PB.' + F.GetPascalEncodeFieldTypeCall('P^', 'L', '' + F.FPascalName) + ';');
+          end;
 
         end;
       Impl.AppendLn('end;');
@@ -1697,6 +1710,8 @@ begin
       Impl.AppendLn('procedure T' + FPascalProtoName + '.FromProtoBuf(PB: TProtoBufInput);');
       Impl.AppendLn('var');
       Impl.AppendLn('  tag, fieldNumber, wireType: Integer;');
+      if FPascalNeedCustomCreate then
+        Impl.AppendLn('  submsg: TProtoBufInput;');
       Impl.AppendLn('begin');
       Impl.AppendLn('  Init; // reset all values');
       Impl.AppendLn('  tag := PB.readTag;');
@@ -1717,6 +1732,16 @@ begin
             Impl.AppendLn('          begin');
             Impl.AppendLn('            Assert(wireType = WIRETYPE_VARINT);');
             Impl.AppendLn('            ' + F.FPascalName + ' := ' + F.GetPascalFieldType.FPascalTypeStr + '(PB.readInt32);');
+            Impl.AppendLn('          end;');
+          end
+          else
+          if F.GetPascalFieldType.FPascalBaseType.FBaseKind = bkMsg then
+          begin
+            Impl.AppendLn('        ' + IntToStringB(F.FTagID) + ' : ');
+            Impl.AppendLn('          begin');
+            Impl.AppendLn('            Assert(wireType = WIRETYPE_LENGTH_DELIMITED);');
+            Impl.AppendLn('            PB.readMessage(@submsg);');
+            Impl.AppendLn('            ' + F.FPascalName + '.FromProtoBuf(submsg);');
             Impl.AppendLn('          end;');
           end
           else
@@ -1840,16 +1865,16 @@ procedure TpbProtoPascalService.GenerateNotificationDeclaration(
   const AUnit: TCodeGenPascalUnit; const PasVersion: TCodeGenSupportVersion);
 var
   I: Integer;
-  done: RawByteString;
+  linea: RawByteString;
   Proc: TpbProtoPascalProcedure;
 begin
     for I := 0 to GetProcedureCount - 1 do
     begin
       Proc := GetPascalProcedure(I);
-      if not StrMatchB(done, Proc.ResponseMessage) then
+      linea := Proc.FPascalResponseNotify + ' = procedure(AValue : ' +  Proc.FPascalResponseMessage + ') of object;';
+      if PosStrB(linea, AUnit.Intf.AsRawByteString) = 0 then // chequeo en toda la sección intf para evitar duplicar
       begin
-        AUnit.Intf.AppendLn(Proc.FPascalResponseNotify + ' = procedure(AValue : ' +  Proc.FPascalResponseMessage + ') of object;');
-        done := done + Proc.ResponseMessage + ',';
+        AUnit.Intf.AppendLn('  ' + linea);
       end;
     end;
 end;
@@ -1926,7 +1951,7 @@ begin
       Proc := GetPascalProcedure(I);
       Impl.AppendLn('  if Path = '+ Self.FName + 'Path + ' + StrQuoteB(Proc.Name, '''') + ' then');
       Impl.AppendLn('  begin');
-      Impl.AppendLn('    if Assigned(FOn' + Proc.Name + ') then');
+      Impl.AppendLn('    if Assigned(FOn' + Proc.FPascalProtoName + ') then');
       Impl.AppendLn('      FOn' + Proc.FPascalProtoName + '(' + Proc.FPascalResponseMessage + '.Create(Data));');
       Impl.AppendLn('  end;');
     end;
