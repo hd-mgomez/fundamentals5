@@ -1063,6 +1063,8 @@ procedure TpbProtoPackage.AddMessage(const M: TpbProtoMessage);
 var
   L: Integer;
 begin
+  if M.Name = 'Empty' then exit;
+  
   L := Length(FMessages);
   SetLength(FMessages, L + 1);
   FMessages[L] := M;
