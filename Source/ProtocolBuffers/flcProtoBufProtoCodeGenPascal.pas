@@ -1648,11 +1648,11 @@ begin
     begin
 
       Impl.AppendLn('procedure T' + FPascalProtoName + '.ToProtoBuffer(PB: TProtoBufOutput);');
-      if FPascalNeedChildCreate then
-      begin
-        Impl.AppendLn('var');
-        Impl.AppendLn('  submsg: TBytes;');
-      end;
+//      if FPascalNeedChildCreate then
+//      begin
+//        Impl.AppendLn('var');
+//        Impl.AppendLn('  submsg: TBytes;');
+//      end;
       Impl.AppendLn('begin');
       L := GetFieldCount;
       for I := 0 to L - 1 do
@@ -1680,13 +1680,8 @@ begin
           else
           if F.GetPascalFieldType.FPascalBaseType.FBaseKind = bkMsg then
           begin
-            Impl.AppendLn(Ind + '// Nested msg ');
-            Impl.AppendLn(Ind + 'begin');
-            Impl.AppendLn(Ind + '  submsg := ' + F.FPascalName + '.Serialize;');
-            Impl.AppendLn(Ind + '  PB.writeTag(' + IntToStringB(F.FTagID) + ', WIRETYPE_LENGTH_DELIMITED);');
-            Impl.AppendLn(Ind + '  PB.writeRawVarint32(System.Length(submsg));');
-            Impl.AppendLn(Ind + '  PB.writeRawData(@submsg[0], System.Length(submsg));');
-            Impl.AppendLn(Ind + 'end;');
+//            Impl.AppendLn(Ind + '// Nested msg ');
+            Impl.AppendLn(Ind + 'PB.writeMessage(' + IntToStringB(F.FTagID) + ', ' + F.FPascalName + '.Serialize);');
           end
           else
           begin
